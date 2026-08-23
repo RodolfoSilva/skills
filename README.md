@@ -32,9 +32,24 @@ npx skills@latest add rodolfosilva/skills --skill send-pr -g -a claude-code -y
 
 | Skill | What it does |
 | --- | --- |
+| [`pixel-perfect`](skills/pixel-perfect) | Turns design fidelity into a number. Exports the design frame, captures the running screen at the same pixel dimensions over CDP, diffs the two with ImageMagick, then reads the diff image to tell a real defect from the floor every text rasterizer imposes. |
 | [`send-pr`](skills/send-pr) | Opens, updates and shepherds a Pull Request. Runs the checks CI would run before pushing, infers the title convention from the repo history, has a second agent review the text, attaches a screenshot or a screen recording of the change, then watches CI and review comments. |
 
 ## Dependencies
+
+### pixel-perfect
+
+[ImageMagick](https://imagemagick.org) provides `magick`, which reads the reference
+dimensions and computes the diff. The capture script needs Node 24, for the global
+`WebSocket`, and a `chrome-headless-shell` binary.
+
+```bash
+brew install imagemagick
+npx playwright install chromium-headless-shell
+```
+
+The script finds the binary in the Playwright cache on its own. Point
+`CHROME_HEADLESS_SHELL` at another one if you keep it somewhere else.
 
 ### send-pr
 

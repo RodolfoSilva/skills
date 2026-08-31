@@ -1,6 +1,6 @@
 ---
 name: send-pr
-description: Opens, updates and shepherds Pull Requests. Runs the checks CI would run first (tests, lint, format, precommit), infers language and title convention from previous PRs, has a cheap agent review the text before publishing, applies existing repo labels, attaches visual evidence of the change (argent screen recording for React Native and Expo, Chrome screenshots for LiveView, emails and React), then watches CI and review comments. Use whenever the user asks to open a PR, create a PR, update a PR, publish a branch, send work for review, or says "/pr", "push e PR", "send PR", "open PR", "update PR", "abrir PR", "subir PR", "atualizar PR", "mandar para revisão". MANDATORY before running `gh pr create`, `gh pr edit`, `gh pr ready` or `gh pr merge` by hand, because the text rules here (no session link, no AI fingerprints, no em dash) live nowhere else and are silently lost otherwise. Invoke proactively when a feature or bugfix is finished, even if the user never says the word "PR".
+description: Opens, updates and shepherds Pull Requests. Runs the checks CI would run first (tests, lint, format, precommit), infers language and title convention from previous PRs, has a cheap agent review the text before publishing, applies existing repo labels, tests the web change in a real browser and attaches visual evidence (argent for React Native and Expo, agent-browser for LiveView, emails and React), then watches CI and review comments. Use whenever the user asks to open a PR, create a PR, update a PR, publish a branch, send work for review, or says "/pr", "push e PR", "send PR", "open PR", "update PR", "abrir PR", "subir PR", "atualizar PR", "mandar para revisão". MANDATORY before running `gh pr create`, `gh pr edit`, `gh pr ready` or `gh pr merge` by hand, because the text rules here (no session link, no AI fingerprints, no em dash) live nowhere else and are silently lost otherwise. Invoke proactively when a feature or bugfix is finished, even if the user never says the word "PR".
 ---
 
 # Opening a PR
@@ -109,14 +109,14 @@ Labels are optional, drop what does not apply. For an existing PR the same conte
 
 Verify with `gh pr view --json title,body`. Templates and automatic trailers can inject content after you write, so if a session link, em dash or AI mention appears, fix it with `gh pr edit`.
 
-## 7. Attach visual evidence
+## 7. Test in the browser and attach visual evidence
 
 A reviewer who can see the change reviews the change, one who cannot reviews the diff and guesses at the result. Every PR that touches something a person can see ships with a video or a screenshot in the body, on the first publish and on every update: if the new commits changed what is on screen, the old media is stale, capture it again and replace it.
 
 Pick from the diff:
 
 - **React Native or Expo app** (anything under the app's screens, components, navigation, styles or copy): record with argent the exact flow the PR changes, no more and no less. The clip starts on the changed screen, exercises the change, and ends on the result.
-- **Web** (LiveView `.heex`, email templates, React pages and components): screenshot the affected pages with Chrome, one per state that actually changed (empty, filled, error), not one per page of the product.
+- **Web** (LiveView `.heex`, email templates, React pages and components): drive the change in a real browser with `agent-browser`, walking every state the diff touches, then capture it. A still per state that actually changed (empty, filled, error), not one per page of the product, and a `record start` / `record stop` clip when the change has timing to it. Walking it first is the point: a screenshot proves the page rendered, the walk proves it works, and `agent-browser errors` catches the exception the screenshot would have hidden.
 - **Both changed**: one of each.
 - **Nothing renderable** (CI config, migrations without UI, tests, types, docs, refactor with no visible effect): this is the only case with no media. Say so in one line in the body, in the PR's language, and repeat it in the final report. Do not use it to skip a screen that was merely inconvenient to launch.
 
@@ -128,7 +128,7 @@ ghmedia upload --repo <owner>/<name> "shot.png=Payment error screen" flow.mp4
 
 Its stdout is markdown and nothing else, so it feeds straight into the body through `gh pr edit`. Create the PR first with the media section empty, then fill it, since the upload needs nothing from the PR itself. On an update, replace the media instead of stacking it: three clips from three pushes tell the reviewer nothing about which one is current.
 
-Mechanics for all of this, what to capture, the argent recording loop, the Chrome screenshots and the `ghmedia` call: `references/visual-evidence.md`. Read it before the first `screen-recording-start` or `ghmedia upload`.
+Mechanics for all of this, what to capture, the argent recording loop, the `agent-browser` walk with its session isolation, screenshots, viewport and video, and the `ghmedia` call: `references/visual-evidence.md`. Read it before the first `screen-recording-start`, `agent-browser open` or `ghmedia upload`.
 
 ## 8. Follow CI and review comments
 

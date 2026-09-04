@@ -53,27 +53,18 @@ The script finds the binary in the Playwright cache on its own. Point
 
 ### send-pr
 
-[`ghmedia`](https://github.com/salao365/ghmedia) uploads the screenshots and screen
-recordings into the pull request body. GitHub's public API has no endpoint for that and
-`gh` cannot do it, so without `ghmedia` the skill has no way to attach visual evidence.
+The skill drives [`gh`](https://cli.github.com) throughout, and needs **v2.99.0 or newer**:
+that is the release where `--attach` started uploading local screenshots and screen
+recordings into the pull request body. GitHub's public API has no endpoint for that, so an
+older `gh` leaves the skill with no way to attach visual evidence.
 
 ```bash
-brew install salao365/tap/ghmedia
+brew install gh   # or: brew upgrade gh
+gh --version
 ```
 
-Or without Homebrew:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/salao365/ghmedia/main/install.sh | sh
-```
-
-It needs [ffmpeg](https://ffmpeg.org) on `PATH` (Homebrew pulls it in, the install script
-does not) and a GitHub token, taken from `GH_TOKEN`, then `GITHUB_TOKEN`, then
-`gh auth token`. If you already use the [GitHub CLI](https://cli.github.com) there is
-nothing else to set up.
-
-The skill drives [`gh`](https://cli.github.com) throughout, so that one is not optional
-either.
+GitHub Enterprise Server does not support the flag yet. On GHES the skill falls back to
+driving the web editor with `agent-browser`.
 
 [`agent-browser`](https://github.com/vercel-labs/agent-browser) is what the skill uses to
 open the branch in a real browser: it walks the states the diff touches, reads the console

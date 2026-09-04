@@ -1,6 +1,6 @@
 # Visual evidence for a PR
 
-Two jobs: produce the file, then get it into the body. The second one is the same for every stack because `gh` cannot upload.
+Two jobs: produce the file, then get it into the body. The second one is the same for every stack, one `--attach` flag on the `gh` command that publishes the PR.
 
 ## What to capture
 
@@ -12,6 +12,8 @@ Read the diff and pick the shortest path that shows the change to someone who ha
 - A flow, an animation, a gesture or anything with timing is a video.
 - One line of intro in the body is enough. Do not narrate the clip frame by frame, the reader is watching it.
 
+Write every file outside the repository, the session scratchpad or `/tmp`, so a stray screenshot never lands in a commit.
+
 ## Native app, React Native and Expo, with argent
 
 The app has to be running the branch's code: dev-client plus Metro on the branch, or a rebuild if native code changed. Project specifics live in the repo's own rules and skills.
@@ -21,7 +23,7 @@ The app has to be running the branch's code: dev-client plus Metro on the branch
 3. `screen-recording-start` with that `udid` and `timeLimitSeconds` a bit over the planned flow. Keep the defaults: `trimStatic` cuts the dead air, `showTouches` draws where each tap landed, which is exactly what a reviewer needs.
 4. Drive the flow with the normal discovery loop, a discovery tool before every tap, never coordinates read off a screenshot. See the `argent-device-interact` skill.
 5. `screen-recording-stop`, which returns the mp4 path under `.argent/recordings/`. That folder is gitignored, never commit the video.
-6. Do not worry about the file size, `ghmedia` fits it. It refuses only when the recording is so long that fitting would make it unreadable, and then the answer is a shorter path, not more compression.
+6. Check the size against the limits below before publishing. A simulator recording of a short flow lands well under them, a three minute walkthrough does not.
 
 The recording keeps running across other tool calls, so stop it as soon as the flow ends rather than leaving it to the time limit.
 
@@ -85,8 +87,8 @@ fine".
 ### Screenshots
 
 ```bash
-agent-browser screenshot empty-state.png
-agent-browser screenshot --full long-page.png
+agent-browser screenshot /tmp/evidence/empty-state.png
+agent-browser screenshot --full /tmp/evidence/long-page.png
 ```
 
 One shot per state that actually changed, not one per page of the product. `--full` captures
@@ -96,7 +98,7 @@ Responsive change, take the second shot at a phone width:
 
 ```bash
 agent-browser set viewport 390 844
-agent-browser screenshot mobile.png
+agent-browser screenshot /tmp/evidence/mobile.png
 agent-browser set viewport 1440 900
 ```
 
@@ -111,7 +113,7 @@ which in the alt text.
 
 ```bash
 agent-browser open http://localhost:4000/checkout
-agent-browser record start flow.webm
+agent-browser record start /tmp/evidence/flow.webm
 # ... snapshot, click, fill, wait ...
 agent-browser record stop
 ```
@@ -126,48 +128,44 @@ GitHub renders `webm` inline, so the file goes up as it comes out, no conversion
 - Nothing with timing to show is a screenshot, not a video. A still is read in one second,
   a video of a still is read in none.
 
-## Uploading into the body
+## Attaching the files with gh
 
-`gh pr create --body` takes text only, and a `raw.githubusercontent` link renders as a link, not as a player. The only URL GitHub renders inline in any repository visibility, and the only one that turns a video into a player, is `https://github.com/user-attachments/assets/<uuid>`. `ghmedia` mints those from the command line, which is why this step no longer needs a browser.
+`gh` uploads local media since **v2.99.0** and mints the `https://github.com/user-attachments/assets/<uuid>` URLs GitHub renders inline in any repository visibility, video included. Nothing else is needed, and no other host produces a URL that renders in a private repo.
 
-```bash
-ghmedia upload --repo <owner>/<name> \
-  "empty-state.png=Empty list before the fix" \
-  "filled.png=List after the fix" \
-  flow.mp4
-```
-
-- **stdout is markdown and nothing else.** Images come back as `![alt](url)`, video as a bare URL alone on its line, which is the only form GitHub turns into a player. Paste it as it comes, do not rewrap the video.
-- **stderr is the log**: original size, what the encode decided, final size. Read it when something looks wrong, ignore it otherwise.
-- **Alt text goes after an equals sign**, glued to the file so it cannot slip onto the wrong one. Without it, the alt is derived from the file name, so a screenshot saved as `payment-error.png` documents itself and one saved as `2026-08-21-135042.png` does not.
-- **`--repo` is the repository the PR lives in.** Contributing through a fork, where you cannot push upstream, add `--host-repo <your>/<repo>`: the upload needs push access, and the asset URL renders anywhere regardless of where it was hosted.
-- `--dry-run` prints what would happen to each file without encoding or uploading.
-
-Then put the output in the body:
+The flag is on `gh pr create`, `gh pr edit`, `gh pr comment`, and the three `gh issue` equivalents:
 
 ```bash
-gh pr edit <number> --body "$(cat <<'EOF'
-<body with the markdown pasted into the media section>
-EOF
-)"
+gh pr create --base main --title "..." --body "$(cat body.md)" \
+  --attach "/tmp/evidence/empty-state.png#Empty list before the fix" \
+  --attach "/tmp/evidence/filled.png#List after the fix" \
+  --attach /tmp/evidence/flow.webm
 ```
 
-Confirm with `gh pr view --json body` that the `user-attachments` URL is in there.
+- **Repeatable, one flag per file.** Alt text goes after a `#`, glued to the path so it cannot slip onto the wrong file. Left off, `gh` derives it from the file name.
+- **A local path already written in the body is rewritten in place**, keeping the alt text and the position you chose. So stills go in the body as `![Empty list before the fix](/tmp/evidence/empty-state.png)` and land exactly where the section says.
+- **Anything attached but never referenced is appended at the end.** That is where the video belongs, alone on its line, which is the form GitHub turns into a player.
+- **png, jpeg, gif, webp, svg, mp4, mov and webm.** GitHub rejects the rest at the server, so a PDF or a diagram has to become a PNG first.
+- **Push access on the repository is required**, and GitHub Enterprise Server is not supported in this release.
 
-Updating a PR replaces the media line, it does not stack. Three clips from three pushes tell the reviewer nothing about which one is the current behavior.
+Confirm with `gh pr view --json body` that every local path became a `user-attachments` URL. A path left untouched means the upload did not happen.
 
-### What it will not do
+### Size limits
 
-- **Only png, jpeg, gif, webp, mp4, mov and webm.** GitHub rejects everything else at the server, PDF and SVG included, so no amount of compression gets them in. A diagram has to become a PNG first.
-- **Push access is required** on whatever `--host-repo` resolves to. Without it the endpoint answers 404, not 403, so the message says push access even though GitHub says Not Found.
-- **It refuses a recording that cannot fit without becoming unreadable.** That is a signal to record less, not a bug.
+`gh` uploads the file as it is, it does not compress. GitHub caps images and GIFs at 10 MB, and video at 10 MB on a free plan, 100 MB on a paid one.
 
-### When it fails
+Over the limit, the first answer is a shorter recording: the flow that shows the change is rarely more than a few seconds, and a clip nobody watches to the end is not evidence. When the flow really is that long, re-encode instead of cutting:
 
-The endpoint `ghmedia` uses is undocumented, so it can break without notice. There is no fallback chain on purpose: every alternative host produces a URL that renders worse, or not at all in a private repo, and finding that out through a reviewer saying they see nothing is worse than a clear failure.
+```bash
+ffmpeg -i flow.webm -vf "scale=720:-2" -c:v libvpx-vp9 -crf 40 -b:v 0 -an flow-small.webm
+```
 
-The manual path still works, and is the escape hatch. It drives the GitHub web editor, so it
-needs a browser logged into GitHub, which means the user's own Chrome profile:
+Drop the frame rate too (`-r 15`) if it is still too big. An mp4 takes the same treatment with `-c:v libx264 -crf 30 -preset slow`.
+
+### When gh is too old
+
+`gh --version` under 2.99.0 has no `--attach`, and the flag fails the command outright rather than degrading. Upgrade it (`brew upgrade gh`) and rerun. If that is not possible in this session, say so and use the manual path below, do not publish a PR that silently lost its evidence.
+
+The manual path drives the GitHub web editor, so it needs a browser logged into GitHub, which means the user's own Chrome profile:
 
 ```bash
 agent-browser --profile Default --headed open <pr-url>

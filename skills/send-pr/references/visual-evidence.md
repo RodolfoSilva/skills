@@ -7,7 +7,7 @@ Two jobs: produce the file, then get it into the body. The second one is the sam
 Read the diff and pick the shortest path that shows the change to someone who has never seen it.
 
 - Start on the screen the change lives in. Login, seeding and navigation to get there are setup, not evidence, do them before recording.
-- A fix shows the fixed behavior. If the bug is subtle enough that the fix looks like nothing, capture the base commit too and post before and after.
+- A fix shows both behaviors: the bug reproduced on the base commit, then the fixed flow on the branch, posted side by side as before and after. Without the before, the reviewer has to take the reproduction on faith.
 - A purely visual change (spacing, color, copy, empty state) is a still. A still is read in one second, a video of a still is read in none.
 - A flow, an animation, a gesture or anything with timing is a video.
 - One line of intro in the body is enough. Do not narrate the clip frame by frame, the reader is watching it.
@@ -26,6 +26,23 @@ The app has to be running the branch's code: dev-client plus Metro on the branch
 6. Check the size against the limits below before publishing. A simulator recording of a short flow lands well under them, a three minute walkthrough does not.
 
 The recording keeps running across other tool calls, so stop it as soon as the flow ends rather than leaving it to the time limit.
+
+### Which platform
+
+iOS by default. Android when the reported issue is about Android: the ticket or issue names it, the branch says `android`, or the diff sits in `android/`, `*.android.tsx` or `Platform.OS === 'android'` branches. Both only when the fix has a platform-specific side on each. Boot and connect through the `argent-ios-simulator-setup` or `argent-android-emulator-setup` skill, the interaction loop is the same on both.
+
+### Before and after for a fix
+
+Two clips of the same flow, same device, same starting screen, so the only difference the reviewer sees is the fix.
+
+1. Note the branch's base (`gh repo view --json defaultBranchRef -q .defaultBranchRef.name`) and make sure `git status` is clean, stash if not.
+2. Check out the base, `git checkout <base>`, or open it in a separate worktree (`git worktree add /tmp/before <base>`) when the app can point Metro at another directory, which avoids touching the branch checkout at all.
+3. Get the app running the base code: reload Metro for a JS-only change, rebuild when native code or dependencies changed. A "before" recorded on the branch's build is not a before.
+4. Record the flow with the loop above, reproducing the bug. Copy the mp4 out of `.argent/recordings/` to `/tmp/evidence/before.mp4`, since the next checkout may not keep it.
+5. Come back to the branch, `git checkout -` and `git stash pop` if used, or drop the worktree (`git worktree remove /tmp/before`), reload or rebuild again, and record the same flow to `/tmp/evidence/after.mp4`.
+6. Both clips go in the Before/After table described in step 5 of the skill, before on the left.
+
+Record the before first: if the bug does not reproduce on the base, the fix is for something else, and that is worth knowing before opening the PR.
 
 A still from the app comes from `screenshot` with `scale: 1.0` and `includeImageInContext: false`, which writes the file without dumping the image into context.
 
@@ -143,7 +160,8 @@ gh pr create --base main --title "..." --body "$(cat body.md)" \
 
 - **Repeatable, one flag per file.** Alt text goes after a `#`, glued to the path so it cannot slip onto the wrong file. Left off, `gh` derives it from the file name.
 - **A local path already written in the body is rewritten in place**, keeping the alt text and the position you chose. So stills go in the body as `![Empty list before the fix](/tmp/evidence/empty-state.png)` and land exactly where the section says.
-- **Anything attached but never referenced is appended at the end.** That is where the video belongs, alone on its line, which is the form GitHub turns into a player.
+- **Anything attached but never referenced is appended at the end.** That is where a single video belongs, alone on its line, which is the form GitHub turns into a player.
+- **Videos in a table need a `<video>` tag.** A bare URL in a cell is a link, not a player. Write `<video src="/tmp/evidence/before.mp4"></video>` in the cell, attach the file, then check with `gh pr view --json body` that the `src` became a `user-attachments` URL. If it did not, the URL is at the bottom of the body, paste it into the `src` and `gh pr edit --body` again.
 - **png, jpeg, gif, webp, svg, mp4, mov and webm.** GitHub rejects the rest at the server, so a PDF or a diagram has to become a PNG first.
 - **Push access on the repository is required**, and GitHub Enterprise Server is not supported in this release.
 

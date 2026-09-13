@@ -1,6 +1,6 @@
 ---
 name: send-pr
-description: Opens, updates and shepherds Pull Requests. Runs the checks CI would run first (tests, lint, format, precommit), infers language and title convention from previous PRs, has a cheap agent review the text before publishing, applies existing repo labels, tests the change in a real browser or simulator (agent-browser for web, argent for React Native and Expo) and attaches the screenshot or clip with `gh --attach`, then watches CI and review comments. Use whenever the user asks to open a PR, create a PR, update a PR, publish a branch, send work for review, or says "/pr", "push e PR", "send PR", "open PR", "update PR", "abrir PR", "subir PR", "atualizar PR", "mandar para revisão". MANDATORY before running `gh pr create`, `gh pr edit`, `gh pr ready` or `gh pr merge` by hand, because the text rules here (no session link, no AI fingerprints, no em dash) live nowhere else and are silently lost otherwise. Invoke proactively when a feature or bugfix is finished, even if the user never says the word "PR".
+description: Opens, updates and shepherds Pull Requests. Runs the checks CI would run first (tests, lint, format, precommit), infers language and title convention from previous PRs, has a cheap agent review the text before publishing, applies existing repo labels, tests the change in a real browser or simulator (agent-browser for web, argent for React Native and Expo), records the affected flow before and after the fix on iOS or Android and posts both clips in a Before/After table, attaching the media with `gh --attach`, then watches CI and review comments. Use whenever the user asks to open a PR, create a PR, update a PR, publish a branch, send work for review, or says "/pr", "push e PR", "send PR", "open PR", "update PR", "abrir PR", "subir PR", "atualizar PR", "mandar para revisão". MANDATORY before running `gh pr create`, `gh pr edit`, `gh pr ready` or `gh pr merge` by hand, because the text rules here (no session link, no AI fingerprints, no em dash) live nowhere else and are silently lost otherwise. Invoke proactively when a feature or bugfix is finished, even if the user never says the word "PR".
 ---
 
 # Opening a PR
@@ -57,7 +57,8 @@ This comes before publishing on purpose. Walking the change is how a broken scre
 
 Pick from the diff:
 
-- **React Native or Expo app** (anything under the app's screens, components, navigation, styles or copy): record with argent the exact flow the PR changes, no more and no less. The clip starts on the changed screen, exercises the change, and ends on the result.
+- **React Native or Expo app** (anything under the app's screens, components, navigation, styles or copy): record with argent the exact flow the PR changes, no more and no less. The clip starts on the changed screen, exercises the change, and ends on the result. Record on iOS by default; switch to Android when the reported issue is about Android (the ticket, issue or branch says so, or the diff lives in `android/` or `*.android.tsx` files). Only record both when the fix is platform-specific on each side.
+  - **A fix ships two recordings, before and after.** The "before" is the same flow on the base commit, reproducing the bug; the "after" is the branch. Record the before first, so the reproduction is confirmed before the fix is judged. The two clips go in the body as a Before/After table, see step 5. A feature with no previous behavior ships one clip.
 - **Web** (LiveView `.heex`, email templates, React pages and components): drive the change in a real browser with `agent-browser`, walking every state the diff touches, then capture it. A still per state that actually changed (empty, filled, error), not one per page of the product, and a `record start` / `record stop` clip when the change has timing to it. Walking it first is the point: a screenshot proves the page rendered, the walk proves it works, and `agent-browser errors` catches the exception the screenshot would have hidden.
 - **Both changed**: one of each.
 - **Nothing renderable** (CI config, migrations without UI, tests, types, docs, refactor with no visible effect): this is the only case with no media. Say so in one line in the body, in the PR's language, and repeat it in the final report. Do not use it to skip a screen that was merely inconvenient to launch.
@@ -87,7 +88,19 @@ End with a section for the media, heading in the PR's language ("Demonstração"
 ![List after the fix](/tmp/evidence/filled.png)
 ```
 
-`gh` swaps those paths for the uploaded URLs when it publishes, keeping the alt text and the order you wrote. Leave the video out of the body, it gets appended on its own line, which is the form GitHub turns into a player.
+`gh` swaps those paths for the uploaded URLs when it publishes, keeping the alt text and the order you wrote. A single video stays out of the body, it gets appended on its own line, which is the form GitHub turns into a player.
+
+A fix with a before and after recording uses a two-column table instead, heading in the PR's language ("Antes e depois", "Before / After"). A bare URL inside a table cell does not become a player, so each cell carries a `<video>` tag, which GitHub renders inline:
+
+```markdown
+## Antes e depois
+
+| Antes | Depois |
+| --- | --- |
+| <video src="/tmp/evidence/before.mp4"></video> | <video src="/tmp/evidence/after.mp4"></video> |
+```
+
+Both files still go through `--attach`. Step 7 says how to confirm the paths inside the tags were rewritten.
 
 ### Labels
 
@@ -149,7 +162,7 @@ EOF
 
 Labels are optional, drop what does not apply. Updating an existing PR takes the same flags through `gh pr edit <number> --title ... --body ... --attach ...`, and the body has to be rewritten rather than added to: three clips from three pushes tell the reviewer nothing about which one is the current behavior.
 
-Verify with `gh pr view --json title,body`. Every attachment should now be a `https://github.com/user-attachments/assets/...` URL, and the video should sit alone on its line. Templates and automatic trailers can inject content after you write, so if a session link, em dash or AI mention appears, fix it with `gh pr edit`.
+Verify with `gh pr view --json title,body`. Every attachment should now be a `https://github.com/user-attachments/assets/...` URL, and a single video should sit alone on its line. For a Before/After table, check that both `<video src>` values became `user-attachments` URLs; if a local path survived, `gh` appended the URLs at the bottom of the body instead, so move each one into its cell and republish the body with `gh pr edit`, keeping the before on the left. Templates and automatic trailers can inject content after you write, so if a session link, em dash or AI mention appears, fix it with `gh pr edit`.
 
 ## 8. Follow CI and review comments
 

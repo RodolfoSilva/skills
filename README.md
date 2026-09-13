@@ -7,22 +7,44 @@ Agent skills I use day to day, packaged so any agent that reads
 
 ### As a Claude Code plugin (recommended)
 
-Claude Code keeps the skills up to date on its own: the marketplace entry is not pinned to a
-version, so every commit on `main` is picked up on the next update.
+Claude Code owns the updates: the marketplace entry is not pinned to a version, so every
+commit on `main` is picked up on the next refresh, with no reinstall.
+
+Inside a Claude Code session, paste these two:
+
+```
+/plugin marketplace add RodolfoSilva/skills
+/plugin install skills@rodolfosilva
+```
+
+`/plugin` on its own opens the manager, where the same thing is done by browsing. Claude Code
+activates the plugin during the install, and runs `/reload-plugins` itself when it cannot.
+If that reload warns about re-reading the conversation, `/reload-plugins --force` applies it
+to the session you are already in.
+
+Turn auto-update on, once, or nothing updates on its own: a third-party marketplace ships
+with it off. In `/plugin`, go to **Marketplaces**, pick `rodolfosilva` and choose
+**Enable auto-update**. Claude Code then refreshes the skills in the background shortly
+after each session starts.
+
+From the shell, outside a session:
 
 ```bash
 claude plugin marketplace add RodolfoSilva/skills
 claude plugin install skills@rodolfosilva
 ```
 
-Inside a session use `/plugin` instead. To pull the newest commit:
+Either way the skills arrive namespaced under the plugin, as `/skills:pixel-perfect` and
+`/skills:send-pr`, and Claude invokes them on its own from their descriptions.
 
-```bash
-claude plugin marketplace update rodolfosilva
+To pull the newest commit by hand, without waiting for the background refresh:
+
+```
+/plugin marketplace update rodolfosilva
 ```
 
 Install for the team, committing the marketplace to the repo you run it from, with
-`--scope project`.
+`--scope project` on the `claude plugin` form.
 
 ### With the `skills` CLI
 

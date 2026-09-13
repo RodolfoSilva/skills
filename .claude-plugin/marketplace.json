@@ -1,0 +1,24 @@
+{
+  "name": "rodolfosilva",
+  "description": "Agent skills I use day to day, packaged as a Claude Code plugin",
+  "owner": {
+    "name": "Rodolfo Silva",
+    "url": "https://github.com/RodolfoSilva"
+  },
+  "plugins": [
+    {
+      "name": "skills",
+      "source": "./",
+      "displayName": "Rodolfo's skills",
+      "description": "pixel-perfect, for measuring design fidelity as a number, and send-pr, for opening and shepherding Pull Requests",
+      "author": {
+        "name": "Rodolfo Silva",
+        "url": "https://github.com/RodolfoSilva"
+      },
+      "homepage": "https://github.com/RodolfoSilva/skills",
+      "repository": "https://github.com/RodolfoSilva/skills",
+      "license": "MIT",
+      "keywords": ["pull-request", "design-fidelity", "screenshot", "qa"]
+    }
+  ]
+}

@@ -5,7 +5,29 @@ Agent skills I use day to day, packaged so any agent that reads
 
 ## Install
 
-Point the [`skills`](https://github.com/vercel-labs/skills) CLI at this repository:
+### As a Claude Code plugin (recommended)
+
+Claude Code keeps the skills up to date on its own: the marketplace entry is not pinned to a
+version, so every commit on `main` is picked up on the next update.
+
+```bash
+claude plugin marketplace add RodolfoSilva/skills
+claude plugin install skills@rodolfosilva
+```
+
+Inside a session use `/plugin` instead. To pull the newest commit:
+
+```bash
+claude plugin marketplace update rodolfosilva
+```
+
+Install for the team, committing the marketplace to the repo you run it from, with
+`--scope project`.
+
+### With the `skills` CLI
+
+For agents other than Claude Code, point the
+[`skills`](https://github.com/vercel-labs/skills) CLI at this repository:
 
 ```bash
 npx skills@latest add rodolfosilva/skills
@@ -122,6 +144,16 @@ Run it locally before pushing:
 npm install
 npm run validate
 ```
+
+The plugin manifests in [`.claude-plugin/`](.claude-plugin) are checked with:
+
+```bash
+claude plugin validate .
+```
+
+It warns that no `version` is declared. That is deliberate: with the field set, Claude Code
+only refreshes the plugin when the string changes, and leaving it out makes the resolved
+commit the version, so an update always lands.
 
 ## License
 

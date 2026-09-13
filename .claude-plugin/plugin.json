@@ -1,0 +1,10 @@
+{
+  "name": "skills",
+  "displayName": "Rodolfo's skills",
+  "description": "pixel-perfect, for measuring design fidelity as a number, and send-pr, for opening and shepherding Pull Requests",
+  "author": {
+    "name": "Rodolfo Silva",
+    "url": "https://github.com/RodolfoSilva"
+  },
+  "license": "MIT"
+}

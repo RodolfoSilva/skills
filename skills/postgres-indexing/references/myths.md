@@ -49,7 +49,6 @@ A btree keeps itself balanced on every insert, update, and delete, there is no s
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pgstattuple;
-
 SELECT * FROM pgstattuple('orders_user_id_idx');
 -- check dead_tuple_percent before deciding anything needs to change
 

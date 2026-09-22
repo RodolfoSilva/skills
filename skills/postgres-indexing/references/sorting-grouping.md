@@ -4,7 +4,7 @@ Sorting is expensive: Postgres must read the entire input before it can emit a s
 
 ## Make the index order match the ORDER BY order
 
-When an index's column order and direction match the `ORDER BY` clause, Postgres can walk the index leaf pages directly and skip sorting. The scan then produces rows one at a time in final order, so `LIMIT` can stop early instead of materializing every row first.
+When an index's column order and direction match the `ORDER BY` clause, Postgres can walk the index leaf pages directly and skip sorting.
 
 ```sql
 CREATE INDEX orders_inserted_at_idx ON orders (inserted_at);
@@ -19,7 +19,7 @@ LIMIT 20;
 create index(:orders, [:inserted_at])
 ```
 
-With the index in place, `EXPLAIN` shows an `Index Scan` feeding `Limit` directly, no `Sort` node above it. Without the index, Postgres reads every row, sorts all of them, and only then takes the first 20, which costs the same no matter how small the `LIMIT` is.
+`EXPLAIN` confirms it: an `Index Scan` feeds `Limit` directly, no `Sort` node above it. See pagination.md for how this pipelined order also makes `LIMIT` and keyset paging cheap.
 
 **Mistake:** relying on a sequential scan plus a `Sort` node for a query that always takes a small `LIMIT`. The cost of that plan grows with table size even though the result size never does.
 
@@ -107,6 +107,6 @@ from oi in OrderItem,
   select: {oi.order_id, oi.product_id, sum(oi.quantity)}
 ```
 
-`ASC`/`DESC` and `NULLS FIRST`/`LAST` do not matter for `GROUP BY`, since grouping only needs rows of the same key adjacent to each other, not in a particular direction. Postgres is an exception on nulls, though: if the index treats null as the smallest value, it may skip the pipelined `GroupAggregate` for a grouping column that contains nulls. Adding an `ORDER BY` that matches the index column order works around this.
+`ASC`/`DESC` and `NULLS FIRST`/`LAST` do not matter for `GROUP BY`, since grouping only needs rows of the same key adjacent to each other, not in a particular direction. If the index treats null as the smallest value, Postgres may still skip the pipelined `GroupAggregate` for a grouping column that contains nulls; adding an `ORDER BY` that matches the index column order works around this.
 
-**Mistake:** grouping by `product_id, order_id` while the index is `(order_id, product_id)`. The grouping key order does not match the index prefix, so Postgres cannot rely on the index order and falls back to `HashAggregate`.
+**Mistake:** expecting `GROUP BY product_id` alone to get a pipelined `GroupAggregate` from the `(order_id, product_id)` index. `product_id` is not a prefix of that index, so rows sharing a `product_id` are scattered across the scan order (which follows `order_id` first), and Postgres falls back to `HashAggregate`.

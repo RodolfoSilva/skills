@@ -60,7 +60,7 @@ Each file is 80 to 200 lines of original text. Every rule has a Postgres SQL exa
 
 The rules are distilled from a local reference corpus on SQL indexing that stays outside git: `corpus/` is listed in `.gitignore`, and the download script lives in the session scratchpad, not in the repo. The corpus is raw material for writing; nothing from it is copied verbatim into the skill.
 
-Download rules: table of contents first, then one page per second, HTML converted to Markdown with `pandoc` (fallback `html2text`), skipping the chapters that cover other databases. Around 70 pages remain.
+Download rules: table of contents first, then one page per second, HTML converted to Markdown with `markdownify`, skipping the chapters that cover other databases. Around 70 pages remain.
 
 ## Validation
 

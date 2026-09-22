@@ -34,7 +34,7 @@ The session scratchpad directory (outside the repo) is referred to below as `$SC
 - Output: `corpus/*.md` (gitignored)
 
 **Interfaces:**
-- Produces: `corpus/<slug>.md`, one file per page, slug is the URL path under `/sql/` with `/` replaced by `__`. Example: `corpus/where-clause__functions__case-insensitive-search.md`. Each file starts with `# <page title>`.
+- Produces: `corpus/<slug>.md`, one file per page, slug is the URL path under the table-of-contents section with `/` replaced by `__`. Example: `corpus/where-clause__functions.md`. Each file starts with `# <page title>`.
 - Produces: `$SCRATCH/lint-skill.sh <file>...`, exits non zero when a file contains a forbidden token or is outside 80 to 200 lines (SKILL.md is exempt from the line check).
 
 - [ ] **Step 1: Add corpus to .gitignore**
@@ -48,14 +48,16 @@ git add .gitignore && git commit -m "chore: ignore the local indexing corpus"
 
 ```python
 # $SCRATCH/scrape.py
-import re, sys, time, pathlib, urllib.request
+import os, re, sys, time, pathlib, urllib.request
 from bs4 import BeautifulSoup
 from markdownify import markdownify
 
 BASE = sys.argv[1].rstrip("/")
 OUT = pathlib.Path(sys.argv[2])
 OUT.mkdir(parents=True, exist_ok=True)
-SKIP = re.compile(r"^/sql/explain-plan/(db2|mysql|oracle|sql-server|sqlbase|sqlite)")
+TOC_PATH = os.environ["SITE_TOC_PATH"]
+SECTION = TOC_PATH.rsplit("/", 1)[0] + "/"
+SKIP = re.compile(os.environ["SKIP_REGEX"])
 UA = {"User-Agent": "Mozilla/5.0 (corpus fetch for a private study; 1 req/s)"}
 
 def get(path):
@@ -63,12 +65,12 @@ def get(path):
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.read().decode("utf-8", "replace")
 
-toc = BeautifulSoup(get("/sql/table-of-contents"), "html.parser")
-paths = sorted({a["href"] for a in toc.select('a[href^="/sql/"]')
+toc = BeautifulSoup(get(TOC_PATH), "html.parser")
+paths = sorted({a["href"] for a in toc.select(f'a[href^="{SECTION}"]')
                 if not SKIP.match(a["href"]) and "table-of-contents" not in a["href"]})
 
 for path in paths:
-    slug = path.removeprefix("/sql/").replace("/", "__") or "index"
+    slug = path.removeprefix(SECTION).replace("/", "__") or "index"
     target = OUT / f"{slug}.md"
     if target.exists():
         continue
@@ -87,11 +89,11 @@ for path in paths:
 - [ ] **Step 3: Run it**
 
 ```bash
-uv run --with markdownify --with beautifulsoup4 python3 $SCRATCH/scrape.py "$SITE_BASE_URL" corpus
+SITE_TOC_PATH=... SKIP_REGEX=... uv run --with markdownify --with beautifulsoup4 python3 $SCRATCH/scrape.py "$SITE_BASE_URL" corpus
 ls corpus | wc -l
 ```
 
-`$SITE_BASE_URL` is the base URL of the corpus source; it is typed into the shell, not written into any file in the repo. Expected: about 70 files, each larger than 500 bytes. Open two at random and confirm the body text is there and the navigation is not. If a page came out empty, adjust the `main` selector in the script and delete that file so the rerun fetches it again.
+`$SITE_BASE_URL`, `$SITE_TOC_PATH` (the table-of-contents page path) and `$SKIP_REGEX` (a regex matching hrefs to skip, such as pages about other databases) are typed into the shell, never written into any file in the repo. Expected: about 70 files, each larger than 500 bytes. Open two at random and confirm the body text is there and the navigation is not. If a page came out empty, adjust the `main` selector in the script and delete that file so the rerun fetches it again.
 
 - [ ] **Step 4: Write the lint**
 

@@ -34,8 +34,9 @@ claude plugin marketplace add RodolfoSilva/skills
 claude plugin install skills@rodolfosilva
 ```
 
-Either way the skills arrive namespaced under the plugin, as `/skills:pixel-perfect` and
-`/skills:send-pr`, and Claude invokes them on its own from their descriptions.
+Either way the skills arrive namespaced under the plugin, as `/skills:pixel-perfect`,
+`/skills:send-pr`, and `/skills:postgres-indexing`, and Claude invokes them on its own from
+their descriptions.
 
 To pull the newest commit by hand, without waiting for the background refresh:
 
@@ -78,6 +79,7 @@ npx skills@latest add rodolfosilva/skills --skill send-pr -g -a claude-code -y
 | --- | --- |
 | [`pixel-perfect`](skills/pixel-perfect) | Turns design fidelity into a number. Exports the design frame, captures the running screen at the same pixel dimensions over CDP, diffs the two with ImageMagick, then reads the diff image to tell a real defect from the floor every text rasterizer imposes. |
 | [`send-pr`](skills/send-pr) | Opens, updates and shepherds a Pull Request. Runs the checks CI would run before pushing, infers the title convention from the repo history, has a second agent review the text, walks the web change in a real browser with `agent-browser` and attaches the screenshot or screen recording it captured there, then watches CI and review comments. |
+| [`postgres-indexing`](skills/postgres-indexing) | Writes and reviews Postgres queries, Ecto queries, schemas and migrations so they use their indexes. Runs a checklist by clause, WHERE, JOIN, ORDER BY, LIMIT, DML, index creation, EXPLAIN, with the Ecto equivalent next to every SQL rule. |
 
 ## Dependencies
 
@@ -133,6 +135,12 @@ launch. On Linux add `--with-deps` to pull the system libraries too. Check it wi
 
 [argent](https://github.com/software-mansion/argent) is the equivalent for native, and is
 needed only when the diff touches a React Native or Expo screen.
+
+### postgres-indexing
+
+Needs nothing beyond a Postgres database to run `EXPLAIN (ANALYZE, BUFFERS)` against. The
+Ecto equivalent next to each rule only matters in a project that already depends on Ecto; a
+plain SQL project reads past those lines.
 
 ### Letting the agent set it up
 

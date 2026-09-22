@@ -76,7 +76,7 @@ CLUSTER orders USING orders_user_id_idx;
 
 ## Access predicates narrow the scan, filter predicates only trim it
 
-Not every condition on an indexed column earns its keep the same way. A condition that Postgres can use to pick the start and end of the leaf range, an access predicate, is what actually reduces the leaf chain walk. A condition evaluated against rows already pulled from that range, a filter predicate, only throws away rows after the work of reading them was already spent. Both can appear on the same query, and only the deep version of telling them apart in a plan lives in explain.md.
+Not every condition on an indexed column earns its keep the same way. A condition that Postgres can use to pick the start and end of the leaf range, an access predicate, is what actually reduces the leaf chain walk. A condition evaluated against rows already pulled from that range, a filter predicate, only throws away rows after the work of reading them was already spent. Both can appear on the same query; the deep version of telling them apart in a plan lives in explain.md.
 
 ```sql
 CREATE INDEX order_items_order_id_idx ON order_items (order_id);
@@ -87,4 +87,4 @@ WHERE order_id = 100 AND quantity > 5;
 -- quantity > 5 is a filter predicate, checked row by row inside that range
 ```
 
-**Mistake:** assuming any condition that mentions an indexed column narrows the scan. Only a leading, comparable condition on the column's position in the index key does that; everything after it in the key, or any condition on a column outside the key, is filtered instead.
+**Mistake:** assuming any condition that mentions an indexed column narrows the scan. Only a leading, comparable condition on the column's position in the index key does that; a condition on a later key column acts as an index filter predicate, which Postgres still prints under Index Cond, so compare Index Cond to the index definition to tell them apart. A condition on a column outside the key altogether shows up as a plain Filter instead.

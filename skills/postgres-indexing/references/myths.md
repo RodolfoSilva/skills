@@ -48,8 +48,13 @@ CREATE INDEX users_active_idx ON users (id) WHERE deleted_at IS NULL;
 A btree keeps itself balanced on every insert, update, and delete, there is no slow decay in tree depth to correct. What can happen is bloat: dead entries left behind by updates and deletes that autovacuum has not reclaimed yet, which makes the index bigger on disk than it needs to be. That is a space and cache-efficiency question, not a structural one, and it does not need a calendar-based fix.
 
 ```sql
+CREATE EXTENSION IF NOT EXISTS pgstattuple;
+
 SELECT * FROM pgstattuple('orders_user_id_idx');
 -- check dead_tuple_percent before deciding anything needs to change
+
+SELECT * FROM pgstatindex('orders_user_id_idx');
+-- leaf_fragmentation and avg_leaf_density, btree-specific view of the same bloat
 ```
 
 ```sql
@@ -61,7 +66,7 @@ REINDEX INDEX CONCURRENTLY orders_user_id_idx;
 
 ## Myth: dynamic SQL is slow
 
-The slow thing is not a query built at runtime, it is a query built by concatenating values straight into the SQL text. Every distinct string looks like a new statement to the planner, so each one gets parsed and planned from scratch, and it opens the door to SQL injection. A query whose shape changes at runtime but still passes its values as bind parameters gets the same caching and the same protection as any fixed query.
+The slow thing is not a query built at runtime, it is a query built by concatenating values straight into the SQL text. Postgrex keeps a per-connection cache of prepared statements keyed by the query text, so a statement with a bind parameter is prepared once and reused on every call. Concatenating the value into the string instead produces a different query text for every value, so each one misses that cache and has to be parsed and planned again, on top of opening the door to SQL injection. A query whose shape changes at runtime but still passes its values as bind parameters keeps hitting the same cache entry, same as any fixed query.
 
 ```sql
 -- slow and unsafe: the value is part of the SQL string

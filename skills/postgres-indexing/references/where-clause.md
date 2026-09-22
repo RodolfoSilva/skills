@@ -20,7 +20,7 @@ SELECT * FROM orders
 
 ## Functions and casts on the column need an expression index
 
-`lower(email) = 'ana@example.com'` cannot use a plain index on `email`, because the index stores the raw value and the query is now searching for something else entirely. Index the exact expression the query uses, or normalize the column type so the expression is never needed.
+`lower(email) = 'ana@example.com'` cannot use a plain index on `email`, because the index stores the raw value and the query is now searching for something else entirely. Index the exact expression the query uses, or normalize the column type so the expression is never needed. A user-defined function needs its own `IMMUTABLE` label before Postgres will let it into an index at all, and Postgres trusts that label rather than checking it: a function that secretly depends on the clock, randomness, or another table can be declared `IMMUTABLE` anyway, and the index will build without complaint, then quietly drift from what the function would return today.
 
 ```sql
 CREATE INDEX users_email_lower_idx ON users (lower(email));
@@ -34,7 +34,7 @@ from(u in User, where: fragment("lower(?)", u.email) == ^String.downcase(email))
 
 An alternative for case-insensitive text is the `citext` column type, which stores and compares case-insensitively without any expression index at all.
 
-**Mistake:** indexing `email` plainly and then filtering on `lower(email)` everywhere. The index sits unused; every one of those queries falls back to a sequential scan.
+**Mistake:** indexing `email` plainly and then filtering on `lower(email)` everywhere. The index sits unused; every one of those queries falls back to a sequential scan. The opposite mistake is marking a function `IMMUTABLE` just to get it into an index definition when it is not actually deterministic; nothing rejects that at creation time, only stale results later reveal it.
 
 ## Do not index every variant of the same expression
 

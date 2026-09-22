@@ -58,6 +58,14 @@ CREATE INDEX order_items_order_id_idx ON order_items (order_id);
 
 A nested loop join is efficient because Postgres runs it inside one query plan, one index lookup after another, without a round trip to the application between rows. Fetching the child rows from application code, once per parent row, is the same access pattern with the round trips added back in. One query per row is the pathological case: it costs `1 + N` queries for `N` parents, and the network latency of each round trip dwarfs the cost of the index lookup it replaced.
 
+```sql
+-- run once per user instead of once, total
+SELECT * FROM orders WHERE user_id = $1;
+
+-- one round trip for every user in the batch
+SELECT * FROM orders WHERE user_id = ANY($1);
+```
+
 ```elixir
 # one query per user: exactly the N+1 pattern
 users = Repo.all(User)
@@ -73,11 +81,23 @@ users = Repo.all(from u in User, preload: :orders)
 
 `preload` on an association issues a second query that fetches all children for the parents already loaded, using a single `WHERE user_id IN (...)`. That is fine for a plain one-to-many load: it is two queries total, not `N + 1`.
 
+```sql
+SELECT * FROM users WHERE status = 'active';
+SELECT * FROM orders WHERE user_id IN (1, 2, 3);
+```
+
 ```elixir
 from(u in User, where: u.status == "active", preload: :orders)
 ```
 
 Filtering or ordering by a column on the association needs the join in the main query, with `preload` telling Ecto to reuse the same joined rows instead of running a second query.
+
+```sql
+SELECT u.*, o.*
+  FROM users u
+  JOIN orders o ON o.user_id = u.id
+ WHERE o.status = 'paid';
+```
 
 ```elixir
 from(u in User,

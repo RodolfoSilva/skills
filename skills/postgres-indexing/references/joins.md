@@ -39,13 +39,27 @@ EXPLAIN SELECT *
 --          ->  Seq Scan on users u
 ```
 
-A merge join walks two inputs that are already sorted on the join key, like a zipper. Postgres only picks it when an index already delivers that order for both sides, since sorting on the fly usually costs more than a hash join would. It shows up most often on reporting queries where both tables are indexed on the same key and the planner can skip an explicit sort.
+A merge join walks two inputs that are sorted on the join key in lockstep, matching rows as it goes. Postgres sorts either side on the fly when needed, but a merge join is only cheap when an index already delivers the order, so it shows up most often on reporting queries where both tables are indexed on the same key and the planner can skip an explicit sort.
+
+```sql
+CREATE INDEX orders_id_idx ON orders (id);
+CREATE INDEX order_items_order_id_idx ON order_items (order_id);
+
+EXPLAIN SELECT *
+  FROM orders o
+  JOIN order_items oi ON oi.order_id = o.id
+ ORDER BY o.id;
+
+--  Merge Join
+--    ->  Index Scan using orders_id_idx on orders o
+--    ->  Index Scan using order_items_order_id_idx on order_items oi
+```
 
 **Mistake:** indexing `orders.user_id` to speed up a query that Postgres runs as a hash join. The index sits unused because a hash join needs no index on the join predicate, only on the filters that narrow the rows going into the hash table.
 
 ## Index the foreign key on the many side
 
-Postgres indexes primary keys automatically but never foreign keys. Without an index on the many side, every join or lookup by that key falls back to a sequential scan of the whole table.
+Postgres indexes primary keys automatically but never foreign keys. Without an index on the many side, every nested loop lookup by that key falls back to a sequential scan of the whole table.
 
 ```sql
 CREATE INDEX orders_user_id_idx ON orders (user_id);
@@ -75,6 +89,16 @@ Enum.map(users, fn user -> Repo.all(from o in Order, where: o.user_id == ^user.i
 ```elixir
 # one extra query total, not one per user
 users = Repo.all(from u in User, preload: :orders)
+```
+
+**Mistake:** calling `Repo.preload/2` inside `Enum.map/2` over a list already in memory. It runs one query per element instead of one query for the whole list.
+
+```elixir
+# N queries, one per user
+Enum.map(users, fn user -> Repo.preload(user, :orders) end)
+
+# one query for every user in the list
+Repo.preload(users, :orders)
 ```
 
 ## Choose preload or join based on what you filter
@@ -107,19 +131,9 @@ from(u in User,
 )
 ```
 
-**Mistake:** calling `Repo.preload/2` inside `Enum.map/2` over a list already in memory. It runs one query per element instead of one query for the whole list.
-
-```elixir
-# N queries, one per user
-Enum.map(users, fn user -> Repo.preload(user, :orders) end)
-
-# one query for every user in the list
-Repo.preload(users, :orders)
-```
-
 ## Filter and select before a hash join builds its table
 
-A hash join has to materialize the smaller side entirely before it can start probing, so anything that shrinks that side or narrows its columns shrinks the hash table Postgres has to build and, often, keep in memory. Apply `where` filters before the join, and select only the columns the caller needs instead of every column on both tables.
+A hash join has to materialize the smaller side entirely before it can start probing, so anything that shrinks that side or narrows its columns shrinks the hash table Postgres has to build and, often, keep in memory. Have a selective filter on the hashed side and an index for it, the planner applies the filter before building the hash regardless of where it sits in the SQL or the Ecto pipeline. Also select only the columns the caller needs instead of every column on both tables.
 
 ```sql
 SELECT o.id, o.total, u.email

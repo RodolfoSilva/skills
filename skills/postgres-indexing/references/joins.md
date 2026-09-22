@@ -42,7 +42,6 @@ EXPLAIN SELECT *
 A merge join walks two inputs that are sorted on the join key in lockstep, matching rows as it goes. Postgres sorts either side on the fly when needed, but a merge join is only cheap when an index already delivers the order, so it shows up most often on reporting queries where both tables are indexed on the same key and the planner can skip an explicit sort.
 
 ```sql
-CREATE INDEX orders_id_idx ON orders (id);
 CREATE INDEX order_items_order_id_idx ON order_items (order_id);
 
 EXPLAIN SELECT *
@@ -51,7 +50,7 @@ EXPLAIN SELECT *
  ORDER BY o.id;
 
 --  Merge Join
---    ->  Index Scan using orders_id_idx on orders o
+--    ->  Index Scan using orders_pkey on orders o
 --    ->  Index Scan using order_items_order_id_idx on order_items oi
 ```
 

@@ -49,7 +49,7 @@ A changeset only puts changed fields in the `SET` list, so `Repo.update/1` alrea
 
 ## Delete and update need the same index a select would
 
-`DELETE` and `UPDATE` both carry a `WHERE` clause, so the column order and predicate rules in where.md apply exactly as they do to `SELECT`: an index on the filtered column decides whether the database walks a tree or scans the table to find which rows to touch. Deleting or updating a row itself is roughly as cheap as inserting one; finding it without an index is the same table scan a slow `SELECT` would run.
+`DELETE` and `UPDATE` both carry a `WHERE` clause, so the column order and predicate rules in where-clause.md apply exactly as they do to `SELECT`: an index on the filtered column decides whether the database walks a tree or scans the table to find which rows to touch. Deleting or updating a row itself is roughly as cheap as inserting one; finding it without an index is the same table scan a slow `SELECT` would run.
 
 ```sql
 CREATE INDEX orders_status_idx ON orders (status);

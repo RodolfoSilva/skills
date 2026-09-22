@@ -33,13 +33,13 @@ Deeper: `references/index-anatomy.md`, when a query is slow despite hitting an i
 - **Add optional filters by composition, never with `OR $1 IS NULL`.** A generic plan cannot use an index tuned to either branch of `status = $1 OR $1 IS NULL`.
   Mistake: one big `WHERE` that toggles every filter with `OR ? IS NULL`.
   Ecto: `query = if status, do: where(query, [o], o.status == ^status), else: query`
-- **Bind values with `^`, never interpolate into SQL.** Bound parameters keep the prepared statement cache warm and close the injection hole.
+- **Bind values with `^`, never interpolate into SQL.** Bound parameters keep the prepared statement cache warm and close the injection hole (a literal is only for a skewed value that must shape the plan, see `references/where-clause.md`).
   Mistake: `Repo.query!("... WHERE email = '#{email}'")`.
   Ecto: `where: fragment("? = ?", u.email, ^email)`
 
 Deeper: `references/where-clause.md`, when a query has an index but still sequential-scans, when choosing column order for a composite index, or when a condition looks fine but disables the index.
 
-## 2. JOIN
+## 2. JOIN and N+1
 
 - **Index the foreign key on the many side.** Postgres indexes primary keys automatically and foreign keys never; a nested loop needs the index on the inner, non-driving side.
   Mistake: trusting the `REFERENCES` constraint to make `orders.user_id` lookups fast.
@@ -61,7 +61,7 @@ Deeper: `references/joins.md`, when a query joins two or more tables, an associa
 - **Make the index order match the `ORDER BY`, after the `WHERE` equality columns.** Within one equality slice the rows are already sorted, so `Index Scan` feeds `Limit` with no `Sort` node.
   Mistake: `(inserted_at, user_id)` for `WHERE user_id = 42 ORDER BY inserted_at`, or `user_id IN (42, 43)`, which spans two sorted slices and still sorts.
   Ecto: `create index(:orders, [:user_id, :inserted_at])` with `order_by: [asc: o.inserted_at]`.
-- **Declare mixed directions and `NULLS` placement on the index.** A single-direction index reads backwards for free; `a DESC, b ASC` or an explicit `NULLS LAST` does not.
+- **Declare mixed directions and `NULLS` placement on the index.** A single-direction index reads backwards for free; `a DESC, b ASC` does not, and a `NULLS` placement that differs from the default (`ASC NULLS LAST`, `DESC NULLS FIRST`) needs the index declared the same way.
   Mistake: a plain `(inserted_at, id)` index for `ORDER BY inserted_at DESC, id ASC`.
   Ecto: `create index(:orders, ["inserted_at DESC", "id ASC"])` or `["shipped_at DESC NULLS LAST"]`.
 - **Give `GROUP BY` the same index prefix an `ORDER BY` would need.** Sorted input lets the planner pick a pipelined `GroupAggregate` over a buffering `HashAggregate`.
@@ -91,7 +91,7 @@ Deeper: `references/pagination.md`, when a query has `LIMIT` with `OFFSET`, a pa
 
 - **Every index is one more write per inserted row.** Four indexes counting the primary key mean five writes; `insert_all/2` saves round trips, not index maintenance.
   Mistake: adding an index "just in case" on a table that takes far more writes than the reads it would serve.
-  Ecto: check `pg_stat_user_tables` (`idx_scan` against `n_tup_ins`, `n_tup_upd`, `n_tup_del`) before the migration.
+  Ecto: `Repo.query!("SELECT relname, idx_scan, n_tup_ins, n_tup_upd, n_tup_del FROM pg_stat_user_tables WHERE relname = 'orders'")` before the migration, to compare reads against writes.
 - **An update on an indexed column removes and re-adds the entry.** A column outside every index only needs the heap write and can be a heap-only tuple update.
   Mistake: setting every column of a struct regardless of what changed.
   Ecto: a changeset only puts changed fields in `SET`; `Repo.update_all(set: [status: "shipped"])` shows exactly which indexes pay.

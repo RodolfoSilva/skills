@@ -40,6 +40,12 @@ An alternative for case-insensitive text is the `citext` column type, which stor
 
 `lower(email)` and `upper(email)` each need their own expression index, and every extra index adds write overhead to every insert, update and delete on that table. Pick one canonical form for the whole codebase instead of adding an index each time a different query writes the comparison differently.
 
+```sql
+-- redundant: two indexes maintained for the same logical lookup
+CREATE INDEX users_email_lower_idx ON users (lower(email));
+CREATE INDEX users_email_upper_idx ON users (upper(email));
+```
+
 **Mistake:** creating one index on `lower(email)` and another on `upper(email)` because two code paths formatted the comparison differently. Standardize on one function, or on `citext`, and drop the rest.
 
 ## A leading wildcard defeats `LIKE`, a trailing one does not
@@ -89,7 +95,7 @@ from(u in User, where: is_nil(u.deleted_at))
 
 ## A `NOT NULL` constraint frees the planner for count queries
 
-`count(*)` counts every row; `count(column)` skips NULLs and normally has to check each entry for that. A `NOT NULL` constraint proves up front that no row will ever be skipped, so the planner can treat `count(column)` exactly like `count(*)` and is free to satisfy it with the cheapest index-only scan available, rather than one tied to that column's nullability.
+`count(*)` counts every row; `count(column)` skips NULLs, which normally means checking every entry for that. A `NOT NULL` constraint proves up front that no row will ever be skipped, so the planner can treat `count(column)` exactly like `count(*)` and answer it with a plain index-only scan instead of a per-row null check.
 
 ```sql
 ALTER TABLE orders ALTER COLUMN user_id SET NOT NULL;
@@ -165,7 +171,7 @@ query = if user_id, do: where(query, [o], o.user_id == ^user_id), else: query
 
 ## Bind parameters are automatic, fragment interpolation is not
 
-Ecto binds every value you pass through `^` as a parameter, which is both what keeps queries safe from injection and what lets Postgres reuse a cached plan. `fragment/1` with string interpolation writes the value straight into the SQL text and loses both properties; pass it as a fragment argument with `^` instead.
+Ecto binds every value you pass through `^` as a parameter, which is both what keeps queries safe from injection and what lets Postgres reuse a cached plan. Interpolating a value into a `fragment` string writes it straight into the SQL text and loses both properties; pass it as a fragment argument with `^` instead.
 
 ```elixir
 # good: value is bound

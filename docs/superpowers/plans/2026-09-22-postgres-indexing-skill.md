@@ -21,7 +21,7 @@
 - Corpus lives in `corpus/` at the repo root and is listed in `.gitignore`. The download script lives in the session scratchpad, never in the repo.
 - Commit messages follow the repo history: `feat: ...`, `docs: ...`, `chore: ...`, imperative, lowercase after the prefix.
 
-Scratchpad for this session: `/private/tmp/claude-501/-Users-rodolfosilva-orca-workspaces-skills-use-the-index-luke/40e95055-3969-427f-b672-f04f4377719e/scratchpad`. Referred to below as `$SCRATCH`.
+The session scratchpad directory (outside the repo) is referred to below as `$SCRATCH`.
 
 ---
 
@@ -100,7 +100,7 @@ ls corpus | wc -l
 #!/usr/bin/env bash
 set -u
 status=0
-forbidden='use-the-index|index-luke|winand|markus|sql performance explained|http://|https://|—|robust|comprehensive|seamless|leverage|delve|cutting-edge|the book|the site|the author'
+forbidden="$FORBIDDEN|http://|https://|—|robust|comprehensive|seamless|leverage|delve|cutting-edge|the book|the site|the author"
 for f in "$@"; do
   if grep -niE "$forbidden" "$f"; then echo "FORBIDDEN TOKEN in $f"; status=1; fi
   n=$(wc -l < "$f")
@@ -111,6 +111,8 @@ for f in "$@"; do
 done
 exit $status
 ```
+
+`$FORBIDDEN` is exported in the shell before running the lint: a regex with the corpus source's domain, the author's name and the book title. It is typed into the shell, never written into a file in the repo.
 
 ```bash
 chmod +x $SCRATCH/lint-skill.sh

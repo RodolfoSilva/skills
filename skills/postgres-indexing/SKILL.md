@@ -18,6 +18,9 @@ Deeper: `references/index-anatomy.md`, when a query is slow despite hitting an i
 - **Equality columns first, one range last.** Only a leading run of equalities narrows the scan; everything after the first range condition is checked row by row.
   Mistake: `(inserted_at, user_id)` for `WHERE user_id = 42 AND inserted_at >= ...`.
   Ecto: `create index(:orders, [:user_id, :inserted_at])`
+- **One btree narrows one leading run of equalities plus one trailing range.** Two independent range conditions on different columns cannot share one index; Postgres combines two single-column scans with `BitmapAnd`, which costs more than a composite index built for the query (see `references/index-anatomy.md`).
+  Mistake: `(status)` and `(total)` as separate indexes for `WHERE status = 'refunded' AND total > 500`, expecting composite-index speed.
+  Ecto: `create index(:orders, [:status, :total])`
 - **A function or cast on the column needs an expression index.** `lower(email)`, `date_trunc(...)`, `column::int` and `a || b` all hide the column from a plain index.
   Mistake: indexing `email` and filtering on `lower(email)`; the query runs a sequential scan.
   Ecto: `create index(:users, ["lower(email)"])` with `where: fragment("lower(?)", u.email) == ^String.downcase(email)`, or a `citext` column.

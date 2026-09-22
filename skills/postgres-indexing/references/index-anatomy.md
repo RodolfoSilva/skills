@@ -88,3 +88,19 @@ WHERE order_id = 100 AND quantity > 5;
 ```
 
 **Mistake:** assuming any condition that mentions an indexed column narrows the scan. Only a leading, comparable condition on the column's position in the index key does that; a condition on a later key column acts as an index filter predicate, which Postgres still prints under Index Cond, so compare Index Cond to the index definition to tell them apart. A condition on a column outside the key altogether shows up as a plain Filter instead.
+
+## One btree index can only narrow one range, two need combining
+
+A single btree key has one sorted order, so it can only serve one column, or one leading run of equalities plus a single trailing range, as an access predicate. Two independent range or equality conditions on two different, separately indexed columns cannot both narrow the same scan. Postgres can still use both indexes by scanning each one, building an in-memory bitmap of matching row locations for each, and intersecting or unioning those bitmaps before it ever touches the table.
+
+```sql
+CREATE INDEX orders_status_idx ON orders (status);
+CREATE INDEX orders_total_idx ON orders (total);
+
+EXPLAIN SELECT * FROM orders WHERE status = 'refunded' AND total > 500;
+-- BitmapAnd combining a Bitmap Index Scan on each index, before the Bitmap Heap Scan
+```
+
+The combined bitmap scan still costs more than one scan on a single tailored index would, because Postgres pays for two tree traversals and the memory to merge them. A composite index on `(status, total)` avoids that cost entirely for this exact query, at the price of being less reusable for queries that filter on `total` alone.
+
+**Mistake:** creating two single-column indexes and expecting the same performance as a matching composite index. `BitmapAnd`/`BitmapOr` make single-column indexes usable together, but a purpose-built composite index is still cheaper for the query it was built for.

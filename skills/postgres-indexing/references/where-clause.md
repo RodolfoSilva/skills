@@ -163,7 +163,7 @@ WHERE total = 99;
 
 ## Do not build one clause that toggles filters with OR
 
-A `where` clause like `status = ? OR ? IS NULL` looks convenient for an optional filter. With a fresh, custom plan Postgres can still constant-fold `$1 IS NULL` and pick the right index, but bind parameters get re-planned as generic after repeated use (by default once a statement runs five times, controlled by `plan_cache_mode`). Once Postgres switches to that generic plan, it has to handle both the filter-present and filter-disabled case with the same plan, so it cannot use an index tuned to either. Build the query by adding conditions only when the filter is actually present, so every plan stays specific.
+A `where` clause like `status = ? OR ? IS NULL` looks convenient for an optional filter. With a fresh, custom plan Postgres can still constant-fold `$1 IS NULL` and pick the right index, but a prepared statement may switch to a generic plan after repeated use (by default once it runs five times and the generic plan's estimated cost is no worse than the average custom cost, controlled by `plan_cache_mode`). Once Postgres switches to that generic plan, it has to handle both the filter-present and filter-disabled case with the same plan, so it cannot use an index tuned to either. Build the query by adding conditions only when the filter is actually present, so every plan stays specific.
 
 ```sql
 -- bad: every filter is "smart" and none can be optimized for

@@ -18,17 +18,17 @@ Deeper: `references/index-anatomy.md`, when a query is slow despite hitting an i
 - **Equality columns first, one range last.** Only a leading run of equalities narrows the scan; everything after the first range condition is checked row by row.
   Mistake: `(inserted_at, user_id)` for `WHERE user_id = 42 AND inserted_at >= ...`.
   Ecto: `create index(:orders, [:user_id, :inserted_at])`
-- **One btree narrows one leading run of equalities plus one trailing range.** Two independent range conditions on different columns cannot share one index; Postgres combines two single-column scans with `BitmapAnd`, which costs more than a composite index built for the query (see `references/index-anatomy.md`).
-  Mistake: `(status)` and `(total)` as separate indexes for `WHERE status = 'refunded' AND total > 500`, expecting composite-index speed.
-  Ecto: `create index(:orders, [:status, :total])`
+- **Two conditions on separately indexed columns cannot both narrow one scan.** Postgres BitmapAnds the two single-column indexes, which costs more than one composite built for the query (see `references/index-anatomy.md`).
+  Mistake: `(status)` and `(inserted_at)` as separate indexes for `WHERE status = 'refunded' AND inserted_at > now() - interval '7 days'`, expecting composite-index speed.
+  Ecto: `create index(:orders, [:status, :inserted_at])`
 - **A function or cast on the column needs an expression index.** `lower(email)`, `date_trunc(...)`, `column::int` and `a || b` all hide the column from a plain index.
   Mistake: indexing `email` and filtering on `lower(email)`; the query runs a sequential scan.
   Ecto: `create index(:users, ["lower(email)"])` with `where: fragment("lower(?)", u.email) == ^String.downcase(email)`, or a `citext` column.
 - **Write date ranges as bounds, move arithmetic to the constant side.** `inserted_at >= ^from and inserted_at < ^to` keeps the column bare; so does `total = 99` instead of `total + 1 = 100`.
   Mistake: `date_trunc('day', inserted_at) = '2024-01-01'`.
   Ecto: `where: o.inserted_at >= ^start_date and o.inserted_at < ^end_date`
-- **`LIKE 'ana%'` is a range scan, `LIKE '%ana%'` needs a trigram index.** A leading wildcard has no starting point in a btree.
-  Mistake: expecting a plain index on `email` to serve `LIKE '%ana%'`.
+- **`LIKE 'ana%'` is a range scan, `LIKE '%ana%'` needs a trigram index.** A leading wildcard has no starting point in a btree. `ILIKE` never uses a plain btree, case-insensitive or not; index `lower(col)` and match with `LIKE` on `lower(col)`, or use `pg_trgm`.
+  Mistake: expecting a plain index on `email` to serve `LIKE '%ana%'` or any `ILIKE`.
   Ecto: `execute "CREATE INDEX users_email_trgm_idx ON users USING gin (email gin_trgm_ops)"` after `CREATE EXTENSION pg_trgm`.
 - **`IS NULL` uses a plain index; use a partial index when one value dominates.** Postgres stores NULL in btrees, and a partial index stays small when the query only cares about a slice.
   Mistake: indexing `status` across a table where nearly every row is `'completed'`.
@@ -47,7 +47,7 @@ Deeper: `references/where-clause.md`, when a query has an index but still sequen
 - **Index the foreign key on the many side.** Postgres indexes primary keys automatically and foreign keys never; a nested loop needs the index on the inner, non-driving side.
   Mistake: trusting the `REFERENCES` constraint to make `orders.user_id` lookups fast.
   Ecto: `create index(:orders, [:user_id])` in the same migration as `references(:users)`.
-- **Match the index to the algorithm the planner picks.** Nested loop needs the inner join column indexed; hash join needs only the independent filter that shrinks one side; merge join needs both inputs already sorted on the key.
+- **Match the index to the algorithm the planner picks.** Nested loop needs the inner join column indexed; hash join needs only the independent filter that shrinks one side; merge join is only cheap when an index already delivers the order.
   Mistake: indexing `orders.user_id` to speed up a query the plan runs as a hash join; the index sits unused.
   Ecto: index the `where:` column on the hashed side, and `select:` only the columns the caller needs so the hash table stays small.
 - **Never turn a join into N+1 queries.** One query per parent row is the nested loop with a network round trip added to every iteration.
@@ -112,7 +112,7 @@ Deeper: `references/dml.md`, before adding an index to a write-heavy table, or w
 - **One index per query pattern that actually runs, not one per column.** Extra indexes slow every write and give the planner more paths to weigh.
   Mistake: `(status)`, `(total)`, `(inserted_at)` each alone on a busy write table "to be safe".
   Ecto: one composite index shaped like sections 1 and 3 above, then drop the single-column ones it makes redundant.
-- **Key columns narrow, `INCLUDE` columns only avoid the row fetch.** A column in `INCLUDE` cannot serve a `WHERE`; it exists so an index-only scan can return it.
+- **Key columns narrow, `INCLUDE` columns only avoid the row fetch.** A column in `INCLUDE` cannot narrow a `WHERE`, though it can still be checked as a Filter on the index tuple; it exists so an index-only scan can return it.
   Mistake: putting a filtered column in `INCLUDE` and expecting it to narrow the scan.
   Ecto: `create index(:orders, [:user_id], include: [:status, :total])`
 - **Create concurrently, outside the DDL transaction.** A plain `CREATE INDEX` locks writes on the table for its whole duration.

@@ -79,7 +79,7 @@ npx skills@latest add rodolfosilva/skills --skill send-pr -g -a claude-code -y
 | --- | --- |
 | [`pixel-perfect`](skills/pixel-perfect) | Turns design fidelity into a number. Exports the design frame, captures the running screen at the same pixel dimensions over CDP, diffs the two with ImageMagick, then reads the diff image to tell a real defect from the floor every text rasterizer imposes. |
 | [`send-pr`](skills/send-pr) | Opens, updates and shepherds a Pull Request. Runs the checks CI would run before pushing, infers the title convention from the repo history, has a second agent review the text, walks the web change in a real browser with `agent-browser` and attaches the screenshot or screen recording it captured there, then watches CI and review comments. |
-| [`postgres-indexing`](skills/postgres-indexing) | Writes and reviews Postgres queries, Ecto queries, schemas and migrations so they use their indexes. Runs a checklist by clause, WHERE, JOIN, ORDER BY, LIMIT, DML, index creation, EXPLAIN, with the Ecto equivalent next to every SQL rule. |
+| [`postgres-indexing`](skills/postgres-indexing) | Writes and reviews Postgres queries, Ecto queries, schemas and migrations so they use their indexes. Runs a checklist by clause (WHERE, JOIN, ORDER BY, LIMIT, DML, index creation, EXPLAIN) with the Ecto equivalent next to every SQL rule. |
 
 ## Dependencies
 

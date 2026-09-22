@@ -27,7 +27,7 @@ Deeper: `references/index-anatomy.md`, when a query is slow despite hitting an i
 - **Write date ranges as bounds, move arithmetic to the constant side.** `inserted_at >= ^from and inserted_at < ^to` keeps the column bare; so does `total = 99` instead of `total + 1 = 100`.
   Mistake: `date_trunc('day', inserted_at) = '2024-01-01'`.
   Ecto: `where: o.inserted_at >= ^start_date and o.inserted_at < ^end_date`
-- **`LIKE 'ana%'` is a range scan, `LIKE '%ana%'` needs a trigram index.** A leading wildcard has no starting point in a btree. `ILIKE` never uses a plain btree, case-insensitive or not; index `lower(col)` and match with `LIKE` on `lower(col)`, or use `pg_trgm`.
+- **`LIKE 'ana%'` is a range scan, `LIKE '%ana%'` needs a trigram index.** A leading wildcard has no starting point in a btree. `ILIKE` never uses a plain btree; index `lower(col)` and match with `LIKE` on `lower(col)`, or use `pg_trgm`.
   Mistake: expecting a plain index on `email` to serve `LIKE '%ana%'` or any `ILIKE`.
   Ecto: `execute "CREATE INDEX users_email_trgm_idx ON users USING gin (email gin_trgm_ops)"` after `CREATE EXTENSION pg_trgm`.
 - **`IS NULL` uses a plain index; use a partial index when one value dominates.** Postgres stores NULL in btrees, and a partial index stays small when the query only cares about a slice.

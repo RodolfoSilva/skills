@@ -1,5 +1,5 @@
 ---
-name: postgres-indexing
+name: fast-postgres
 description: Writes and reviews Postgres queries, Ecto queries, schemas and migrations so they use their indexes. Runs a checklist by clause (WHERE, JOIN, ORDER BY, LIMIT, DML, index creation, EXPLAIN) with the Ecto equivalent for each rule. Use whenever writing or changing an Ecto query, `Repo.*` call, `Ecto.Query` `from`/`where`/`join`/`order_by`, `fragment`, a migration with `create index`, raw SQL, a `.sql` file, or when the user says "slow query", "add an index", "pagination", "N+1", "EXPLAIN", "query lenta", "tá lento", "adicionar índice", "criar índice", "paginação", "criar migration", "otimizar query". MANDATORY before writing any query, schema or migration that touches Postgres, because the checklist here catches mistakes that pass tests and only show up with production data volume.
 ---
 

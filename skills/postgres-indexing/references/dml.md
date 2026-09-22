@@ -31,7 +31,7 @@ An index keeps its entries in sorted order, so changing an indexed value cannot 
 ```sql
 -- status is indexed, total is not
 UPDATE orders SET status = 'shipped' WHERE id = 100; -- rewrites the status index entry
-UPDATE orders SET total = 24.99 WHERE id = 100;      -- heap-only tuple, no index touched
+UPDATE orders SET total = 24.99 WHERE id = 100;      -- heap-only tuple if it still fits on the page
 ```
 
 ```elixir

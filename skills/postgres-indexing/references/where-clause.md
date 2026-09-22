@@ -184,7 +184,10 @@ query = if user_id, do: where(query, [o], o.user_id == ^user_id), else: query
 Ecto binds every value you pass through `^` as a parameter, which is both what keeps queries safe from injection and what lets Postgres reuse a cached plan. `fragment` requires its SQL string to be a compile-time literal, so it refuses to interpolate a variable into it at all; the only way to get a value in is as a bound argument with `^`.
 
 ```elixir
-# good: value is bound
+# good: a plain comparison binds automatically
+from(u in User, where: u.email == ^email)
+
+# fragment binds too, needed only when the comparison itself can't be plain Ecto syntax
 from(u in User, where: fragment("? = ?", u.email, ^email))
 
 # what people reach for instead when they want interpolation: it compiles, but

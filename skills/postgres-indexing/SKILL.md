@@ -38,7 +38,7 @@ Deeper: `references/index-anatomy.md`, when a query is slow despite hitting an i
   Ecto: `query = if status, do: where(query, [o], o.status == ^status), else: query`
 - **Bind values with `^`, never interpolate into SQL.** Bound parameters keep the prepared statement cache warm and close the injection hole (a literal is only for a skewed value that must shape the plan, see `references/where-clause.md`).
   Mistake: `Repo.query!("... WHERE email = '#{email}'")`.
-  Ecto: `where: fragment("? = ?", u.email, ^email)`
+  Ecto: `where: u.email == ^email` (or `where: fragment("? = ?", u.email, ^email)` when the comparison itself needs raw SQL)
 
 Deeper: `references/where-clause.md`, when a query has an index but still sequential-scans, when choosing column order for a composite index, or when a condition looks fine but disables the index.
 

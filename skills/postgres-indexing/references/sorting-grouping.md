@@ -107,6 +107,6 @@ from oi in OrderItem,
   select: {oi.order_id, oi.product_id, sum(oi.quantity)}
 ```
 
-`ASC`/`DESC` and `NULLS FIRST`/`LAST` do not matter for `GROUP BY`, since grouping only needs rows of the same key adjacent to each other, not in a particular direction. If the index treats null as the smallest value, Postgres may still skip the pipelined `GroupAggregate` for a grouping column that contains nulls; adding an `ORDER BY` that matches the index column order works around this.
+`ASC`/`DESC` and `NULLS FIRST`/`LAST` do not matter for `GROUP BY` on their own, since grouping only needs rows of the same key adjacent to each other, not in a particular direction. But an index declared with a non-default null placement does not match the default sort order the planner assumes for `GROUP BY`, so the planner adds a `Sort` instead of a pipelined `GroupAggregate` for a grouping column that contains nulls, unless the query carries an `ORDER BY` in the index's own column and null order.
 
 **Mistake:** expecting `GROUP BY product_id` alone to get a pipelined `GroupAggregate` from the `(order_id, product_id)` index. `product_id` is not a prefix of that index, so rows sharing a `product_id` are scattered across the scan order (which follows `order_id` first), and Postgres falls back to `HashAggregate`.

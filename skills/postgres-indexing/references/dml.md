@@ -93,6 +93,32 @@ The same idea applies to a brand new table: load the rows first, then create the
 
 **Mistake:** loading millions of rows into a table that already has its full set of indexes, paying the per-row index cost repeatedly instead of the one-time cost of building it after.
 
+## Create indexes concurrently on live tables
+
+A plain `CREATE INDEX` takes a lock that blocks `INSERT`, `UPDATE`, and `DELETE` on the table for the whole build; reads still go through. On a table that takes live traffic, that lock turns an index build into an outage for every write until it finishes. `CREATE INDEX CONCURRENTLY` builds the index without holding that lock, at the cost of a slower build and scanning the table more than once.
+
+```sql
+CREATE INDEX CONCURRENTLY orders_user_id_inserted_at_idx
+  ON orders (user_id, inserted_at);
+```
+
+`CONCURRENTLY` cannot run inside a transaction block, which is what a normal Ecto migration wraps every step in.
+
+```elixir
+defmodule MyApp.Repo.Migrations.AddOrdersUserIdInsertedAtIdx do
+  use Ecto.Migration
+
+  @disable_ddl_transaction true
+  @disable_migration_lock true
+
+  def change do
+    create index(:orders, [:user_id, :inserted_at], concurrently: true)
+  end
+end
+```
+
+**Mistake:** adding `concurrently: true` to the `create index` call without also setting `@disable_ddl_transaction true` and `@disable_migration_lock true`. The migration then fails with "CREATE INDEX CONCURRENTLY cannot run inside a transaction block".
+
 ## Ask what the table's write to read ratio is before adding an index
 
 Every rule above turns into one question before creating a new index: how often would this index actually serve a query, compared to how often the table is written. An index that speeds up a report run once a day on a table that takes hundreds of writes a second is a bad trade, because every one of those writes now pays for an index almost nothing reads.

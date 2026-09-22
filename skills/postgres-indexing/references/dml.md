@@ -4,13 +4,13 @@ An index is redundant data on purpose: the same values as the table, kept in a s
 
 ## Every index is one more write on insert
 
-`INSERT` has no `WHERE` clause, so it cannot benefit from any index the way a query can. It can only pay for them. The database writes the new row to the table heap once, then adds one entry to every index defined on that table. Three indexes mean four writes for a single row: one heap write and three index writes.
+`INSERT` has no `WHERE` clause, so it cannot benefit from any index the way a query can. It can only pay for them. The database writes the new row to the table heap once, then adds one entry to every index defined on that table, including the primary key. Four indexes, counting the primary key on `id`, mean five writes for a single row: one heap write and four index writes.
 
 ```sql
--- orders has indexes on (user_id), (status), (inserted_at)
+-- orders has a primary key on id, plus indexes on (user_id), (status), (inserted_at)
 INSERT INTO orders (user_id, status, total, inserted_at)
 VALUES (42, 'pending', 19.99, now());
--- one heap write, plus one write per index: four writes total
+-- one heap write, plus one write per index: five writes total
 ```
 
 ```elixir
@@ -79,11 +79,15 @@ COPY orders FROM '/data/orders.csv' WITH (FORMAT csv);
 CREATE INDEX orders_status_idx ON orders (status);
 ```
 
+`COPY` with a file path reads from the database server's own filesystem and needs superuser or the `pg_read_server_files` role, so it only works when run directly on the server. From application code, load through `\copy` in `psql` or a `COPY ... FROM STDIN` stream instead, which read the data from the client.
+
 ```elixir
 Repo.query!("DROP INDEX orders_status_idx")
-Repo.query!("COPY orders FROM '/data/orders.csv' WITH (FORMAT csv)")
+# the load itself runs through \copy or a client-side COPY stream, not Repo.query!
 Repo.query!("CREATE INDEX orders_status_idx ON orders (status)")
 ```
+
+The `DROP INDEX` and `CREATE INDEX` pair belongs in a migration, so it ships and reverses with the rest of the schema; reach for `Repo.query!/1` only for a one-off load run outside of a migration.
 
 The same idea applies to a brand new table: load the rows first, then create the indexes it needs for querying. Only drop an index this way when nothing else running against the table depends on it while it is missing.
 

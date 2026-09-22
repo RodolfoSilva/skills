@@ -150,3 +150,18 @@ from(o in Order,
 ```
 
 **Mistake:** `SELECT *` across a join used only to display two or three fields. Every extra column travels into the hash table even though it is thrown away right after.
+
+## Planning cost grows with the number of joined tables
+
+Choosing which of the three algorithms to use, and in what order to join more than two tables, means the planner evaluates a large share of the possible orderings and costs each one out. That work grows fast as tables are added, so it is not free, and it runs again on every plan or replan of the query. A query built once with `^` bind parameters plans this cost a single time and reuses the plan on every call; a query built by concatenating literals into the SQL text pays the full join-planning cost again for every call, on top of everything the "dynamic SQL" myth already covers for simpler queries.
+
+```elixir
+# planned once, join order reused on every call
+from(o in Order,
+  join: u in assoc(o, :user),
+  join: i in assoc(o, :items),
+  where: o.status == ^status
+)
+```
+
+**Mistake:** treating a four- or five-table join as just another query to string-build. The more tables involved, the more a repeated, unparameterized version of it costs in planning time alone, independent of execution.

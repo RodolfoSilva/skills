@@ -58,7 +58,7 @@ from o in Order,
 
 The parameters `last_inserted_at` and `last_id` come from the last row of the page the client already has, not from a page number. This keeps the query's cost constant no matter how deep a user pages, and it never repeats or skips a row when other transactions insert or delete concurrently, since the comparison is anchored to real values instead of a row count.
 
-**Mistake:** writing the comparison as two separate conditions, `inserted_at <= ? AND id < ?`. That excludes rows that share the boundary `inserted_at` but come after it once the tie breaker is considered, so rows quietly go missing across pages.
+**Mistake:** writing the comparison as two separate conditions, `inserted_at <= ? AND id < ?`. That drops every earlier row whose id happens to be larger than the boundary id, so rows quietly go missing.
 
 ## Always include a tie breaker column in the keyset
 
